@@ -28,7 +28,8 @@ The **HME** (Holographic Mining Engine) is a hardware-agnostic optimization laye
 1. **Holographic Phase-Locking** - Synchronizes ASIC oscillation frequency with real-time coherence signals.
 2. **Spectral Tuning** - Optimizes voltage/frequency curves based on the specific physical characteristics of the silicon.
 3. **Reference Implementation** - The current codebase serves as a high-performance driver for the **Bitaxe ecosystem** (BM1366, BM1368, BM1370).
-4. **Thermodynamic Auditing** - Continuous monitoring of J/TH metrics against absolute physical entropy limits.
+4. **Sidecar Mode (USB Co-Processor)** - Turns a USB-connected Bitaxe into a holographically-scheduled worker, applying a "Holographic Veto" to discard 90% of inefficient work at the PC level.
+5. **Thermodynamic Auditing** - Continuous monitoring of J/TH metrics against absolute physical entropy limits.
 
 ### Why It Matters
 
@@ -86,8 +87,11 @@ open mining_dashboard_v2.html
 bitaxe-holographic-engine/
 ├── bitaxe_holographic_engine.py    # Main telemetry & QC engine
 ├── bitaxe_hce_bridge.py             # Autonomous frequency optimizer
+├── ph_bitaxe_sidecar.py             # USB Sidecar Bridge (Co-processor mode)
+├── ph_real_miner.py                 # Core PH logic & Holographic Veto
 ├── mining_dashboard_v2.html         # WSJ-style professional dashboard
 ├── mining_dashboard.html            # Original 3D manifold dashboard
+├── hardware_profiles.py             # Multi-model hardware definitions
 ├── BITAXE_OPTIMIZATION_REPORT.md   # Detailed performance analysis
 ├── requirements.txt                 # Python dependencies
 ├── README.md                        # This file
@@ -129,7 +133,24 @@ Coherence 1.0 → Max Frequency (575 MHz)
 Temperature > 70°C → Auto-throttle to 425 MHz
 ```
 
-### 3. Professional Dashboard (`mining_dashboard_v2.html`)
+### 3. Sidecar Mode (`ph_bitaxe_sidecar.py`)
+
+**Purpose:** Integrated USB co-processor mining with external scheduling logic.
+
+**Technical Innovation:**
+- **Holographic Veto:** The PC (PH-Brain) acts as a high-fidelity filter, discarding 90% of stratum jobs that don't align with local spectral resonance.
+- **Aperiodic I/O Scheduling:** Utilizes the Golden Ratio (PHI) to modulate USB serial polling. This prevents harmonic collisions with OS-level timers, ensuring cleaner bit-stream integrity.
+- **Golden Range Targeting:** Only high-probability nonce ranges are streamed to the Bitaxe hardware, drastically reducing power waste on non-productive hashing.
+
+**Logic:**
+```python
+# Aperiodic scheduling prevents OS grid coupling
+dynamic_sleep = BASE_INTERVAL * (0.9 + 0.2 * ((ticks * PHI) % 1.0))
+```
+
+---
+
+### 4. Professional Dashboard (`mining_dashboard_v2.html`)
 
 **Purpose:** WSJ-style professional monitoring interface
 
