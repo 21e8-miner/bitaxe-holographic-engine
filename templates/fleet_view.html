@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HCE FLEET: Command & Control</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #050508;
+            --accent: #008c45;
+            /* Success Green */
+            --warning: #f7931a;
+            /* Bitcoin Orange */
+            --danger: #c4122f;
+            --card-bg: #ffffff;
+            --text-main: #000000;
+            --text-sub: #666666;
+            --border: #e3e3e3;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: white;
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
+        }
+
+        header {
+            padding: 2rem;
+            border-bottom: 2px solid #1a1a1a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(180deg, rgba(10, 10, 15, 1) 0%, rgba(5, 5, 8, 1) 100%);
+        }
+
+        .title-group h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 900;
+            letter-spacing: -1px;
+            text-transform: uppercase;
+        }
+
+        .title-group p {
+            margin: 0;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent);
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .aggregate-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .stat-box {
+            background: rgba(40, 40, 50, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #888;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 900;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .fleet-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .miner-card {
+            background: var(--card-bg);
+            color: var(--text-main);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid var(--border);
+            transition: transform 0.2s ease, border-color 0.2s ease;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .miner-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent);
+        }
+
+        .card-header {
+            padding: 1.25rem;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .miner-info h3 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 900;
+        }
+
+        .miner-info p {
+            margin: 0;
+            font-size: 0.8rem;
+            color: var(--text-sub);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .card-body {
+            padding: 1.25rem;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .metric-group {
+            border-left: 2px solid var(--border);
+            padding-left: 0.75rem;
+        }
+
+        .m-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            color: var(--text-sub);
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .m-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .card-footer {
+            padding: 0.75rem 1.25rem;
+            background: #f8f9fa;
+            border-top: 2px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: var(--text-sub);
+        }
+
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 700;
+            transition: all 0.2s ease;
+        }
+
+        .nav-btn:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        @media (max-width: 768px) {
+            .aggregate-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="title-group">
+            <h1>HCE Command Center</h1>
+            <p>FLEET-WIDE SPECTRAL OPTIMIZATION // 2026 AUDIT ENABLED</p>
+        </div>
+        <a href="/" class="nav-btn">← Back to Manifold</a>
+    </header>
+
+    <div class="aggregate-stats">
+        <div class="stat-box">
+            <div class="stat-label">Total Fleet Hashrate</div>
+            <div class="stat-value" id="agg-hashrate">0</div>
+            <div style="font-size: 0.8rem; color: #888;">GH/s</div>
+        </div>
+        <div class="stat-box" style="border-color: var(--accent);">
+            <div class="stat-label">Avg. Fleet Efficiency</div>
+            <div class="stat-value" id="agg-efficiency" style="color: var(--accent);">0.0</div>
+            <div style="font-size: 0.8rem; color: #888;">J/TH</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Active Miners</div>
+            <div class="stat-value" id="agg-count">0</div>
+            <div style="font-size: 0.8rem; color: #888;">Hardware Units</div>
+        </div>
+    </div>
+
+    <div class="fleet-grid" id="fleet-grid">
+        <!-- Miner Cards will be injected here -->
+    </div>
+
+    <script>
+        async function fetchFleet() {
+            try {
+                const response = await fetch('/api/fleet');
+                const fleet = await response.json();
+
+                renderFleet(fleet);
+            } catch (err) {
+                console.error("Fleet sync error:", err);
+            }
+        }
+
+        function renderFleet(fleet) {
+            const grid = document.getElementById('fleet-grid');
+            grid.innerHTML = '';
+
+            let totalHash = 0;
+            let totalEff = 0;
+            let activeCount = 0;
+
+            fleet.forEach(miner => {
+                activeCount++;
+                totalHash += (miner.hashrate || 0);
+                totalEff += (miner.efficiency_jth || 0);
+
+                const card = document.createElement('div');
+                card.className = 'miner-card';
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div class="miner-info">
+                            <h3>${miner.model || 'Unknown ASIC'}</h3>
+                            <p>${miner.ip}</p>
+                        </div>
+                        <div class="status-dot" style="background: ${miner.status === 'ONLINE' ? 'var(--accent)' : 'var(--danger)'}"></div>
+                    </div>
+                    <div class="card-body">
+                        <div class="metric-group">
+                            <div class="m-label">Hashrate</div>
+                            <div class="m-value">${(miner.hashrate || 0).toFixed(0)} GH/s</div>
+                        </div>
+                        <div class="metric-group">
+                            <div class="m-label">Efficiency</div>
+                            <div class="m-value" style="color: var(--accent)">${(miner.efficiency_jth || 0).toFixed(1)} J/TH</div>
+                        </div>
+                        <div class="metric-group">
+                            <div class="m-label">Status</div>
+                            <div class="m-value" style="font-size: 0.9rem">${miner.phase_lock_status || 'SEARCHING'}</div>
+                        </div>
+                        <div class="metric-group">
+                            <div class="m-label">Health</div>
+                            <div class="m-value" style="font-size: 0.9rem">OPTIMAL</div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <span>Last Seen: ${new Date(miner.last_seen).toLocaleTimeString()}</span>
+                        <span style="font-weight: 700; color: var(--accent); cursor: pointer;" onclick="window.location.href='/?ip=${miner.ip}'">MANAGE →</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            // Update Aggregates
+            document.getElementById('agg-hashrate').textContent = totalHash.toLocaleString();
+            document.getElementById('agg-count').textContent = activeCount;
+            document.getElementById('agg-efficiency').textContent = activeCount > 0 ? (totalEff / activeCount).toFixed(1) : "0.0";
+        }
+
+        // Initialize
+        fetchFleet();
+        setInterval(fetchFleet, 5000);
+    </script>
+</body>
+
+</html>
