@@ -39,13 +39,13 @@ The **HME** (Holographic Mining Engine) is a hardware-agnostic optimization laye
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Bitaxe Reference)
 
 ### Prerequisites
 
-- Bitaxe Gamma (BM1370) or compatible hardware
+- Bitaxe hardware (Gamma, Supra, or Ultra)
 - Python 3.13+
-- Network access to your Bitaxe device
+- Network access to your device
 
 ### Installation
 
