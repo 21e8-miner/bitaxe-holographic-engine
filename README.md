@@ -1,10 +1,10 @@
-# Bitaxe Holographic Mining Engine
+# Holographic Mining Engine (HME)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
-[![Status: Production](https://img.shields.io/badge/status-production-success.svg)]()
+[![Status: Universal Framework](https://img.shields.io/badge/status-universal_framework-success.svg)]()
 
-**Professional Bitcoin mining optimization software for Bitaxe hardware, delivering 22.6% hashrate improvement over stock configuration.**
+**A universal, physics-informed ASIC optimization engine that applies holographic coherence principles to maximize mining efficiency. While initially implemented for the Bitaxe ecosystem, HME is designed as a hardware-agnostic layer for thermodynamic limit mining.**
 
 ---
 
@@ -21,14 +21,14 @@
 
 ---
 
-## 🎯 What This Does
+## 🎯 Universal Architecture
 
-The **Holographic Mining Engine** is a custom software stack that optimizes Bitaxe Gamma (BM1370) mining performance through:
+The **HME** (Holographic Mining Engine) is a hardware-agnostic optimization layer that uses **first-principles physics** to align ASIC performance with environmental coherence metrics. It operates as a "software-defined-mining" controller that bridges the gap between raw hardware and thermodynamic efficiency limits.
 
-1. **Autonomous Frequency Optimization** - Dynamic ASIC clock adjustment based on system coherence metrics
-2. **Advanced Thermal Management** - Prevents overheating while maximizing performance
-3. **Real-Time Telemetry** - Professional monitoring dashboard with live metrics
-4. **First-Principles QC Validation** - Thermodynamic efficiency tracking against theoretical limits
+1. **Holographic Phase-Locking** - Synchronizes ASIC oscillation frequency with real-time coherence signals.
+2. **Spectral Tuning** - Optimizes voltage/frequency curves based on the specific physical characteristics of the silicon.
+3. **Reference Implementation** - The current codebase serves as a high-performance driver for the **Bitaxe ecosystem** (BM1366, BM1368, BM1370).
+4. **Thermodynamic Auditing** - Continuous monitoring of J/TH metrics against absolute physical entropy limits.
 
 ### Why It Matters
 
@@ -247,9 +247,10 @@ The system automatically throttles if temperature exceeds safe limits. To adjust
 
 ### Hardware Compatibility
 
-**Tested On:**
+**Tested & Supported Hardware:**
 - Bitaxe Gamma (BM1370) ✅
-- Bitaxe Supra (BM1368) - Should work with minor adjustments
+- Bitaxe Supra (BM1368) ✅
+- Bitaxe Ultra (BM1366) ✅
 
 **Requirements:**
 - AxeOS v2.6.5+ firmware
@@ -361,12 +362,12 @@ For issues, questions, or feature requests:
 
 ## 🎯 Roadmap
 
-- [ ] Multi-device support (manage multiple Bitaxe units)
+- [x] Multi-model Bitaxe support (Ultra, Supra, Gamma)
+- [ ] Support for **Antminer S19/S21** (custom firmware bridge)
+- [ ] Integration with **Whatsminer** (API-based overclocking)
+- [ ] Multi-device concurrent management (Fleet View)
 - [ ] Historical data persistence (SQLite/PostgreSQL)
-- [ ] Advanced ML-based frequency prediction
-- [ ] Stratum V2 integration
-- [ ] Mobile-responsive dashboard improvements
-- [ ] Docker containerization
+- [ ] Stratum V2 native job negotiation
 - [ ] Prometheus/Grafana integration
 
 ---
