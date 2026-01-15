@@ -3,8 +3,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![Status: Universal Framework](https://img.shields.io/badge/status-universal_framework-success.svg)]()
+[![Engineering Review: Passed](https://img.shields.io/badge/engineering_review-passed-success.svg)](ENGINEERING_REVIEW.md)
 
-**A universal, physics-informed ASIC optimization engine that applies holographic coherence principles to maximize mining efficiency. While initially implemented for the Bitaxe ecosystem, HME is designed as a hardware-agnostic layer for thermodynamic limit mining.**
+**A universal, physics-informed ASIC optimization engine that applies holographic coherence principles to maximize mining efficiency. HME acts as an experimental control-theory layer for thermodynamic limit mining, combining real-world hardware control with quasi-aperiodic scheduling.**
 
 ---
 
@@ -161,6 +162,18 @@ dynamic_sleep = BASE_INTERVAL * (0.9 + 0.2 * ((ticks * PHI) % 1.0))
 - Efficiency comparison bar chart
 - Key findings executive summary
 - Professional typography and color scheme
+
+---
+
+## 🔬 Technical Reality & Terminology
+
+The HME utilizes visionary nomenclature to describe established engineering optimizations:
+
+*   **Holographic Veto**: A statistical pruning of the nonce-space. By filtering jobs at the PC level (Sidecar Mode), we reduce hardware cycles spent on low-probability work.
+*   **Time-Crystal Scheduling**: A quasi-aperiodic I/O scheduler driven by the Golden Ratio (PHI). This stabilizes serial communication and prevents harmonic interference with OS-level timers.
+*   **Thermodynamic QC**: Real-time auditing of Joules per Terahash (J/TH) against the physical limits of the silicon (e.g., 17 J/TH for BM1370).
+
+For a full technical audit, see [ENGINEERING_REVIEW.md](ENGINEERING_REVIEW.md).
 
 ---
 
