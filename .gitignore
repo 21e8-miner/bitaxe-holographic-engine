@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Logs
+*.log
+*.log.*
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+bitaxe_bridge.log
+bitaxe_bridge_new.log
+bitaxe_bridge_climb.log
+bitaxe_engine.log
+server*.log
+*.csv
+*.jsonl
+
+# Temporary files
+*.tmp
+*.bak
+nohup.out
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment variables
+.env
+.env.local
+
+# Node modules (if any)
+node_modules/
+package-lock.json
+
+# Charts and data
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+!screenshots/*.png
+
+# Sensitive data
+config.local.py
+secrets.py

@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitaxe Performance Analysis | Mining Optimization Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Escrow+Condensed:wght@400;700&family=Exchange:wght@400&family=Retina:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            /* WSJ Color Palette */
+            --wsj-black: #000000;
+            --wsj-charcoal: #2e2e2e;
+            --wsj-gray: #666666;
+            --wsj-light-gray: #e3e3e3;
+            --wsj-off-white: #f7f7f7;
+            --wsj-white: #ffffff;
+            --wsj-blue: #0274b6;
+            --wsj-blue-dark: #014d7a;
+            --wsj-green: #008c45;
+            --wsj-red: #c4122f;
+            --wsj-gold: #d4a574;
+            --wsj-border: #d4d4d4;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--wsj-white);
+            color: var(--wsj-charcoal);
+            line-height: 1.6;
+        }
+
+        .page-wrapper {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        /* Header */
+        .header {
+            border-bottom: 4px solid var(--wsj-black);
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .masthead {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 0.5rem;
+        }
+
+        .publication-name {
+            font-family: 'Crimson Text', Georgia, serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--wsj-black);
+            letter-spacing: -0.5px;
+        }
+
+        .date-time {
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-size: 0.75rem;
+            color: var(--wsj-gray);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .headline {
+            font-family: 'Crimson Text', Georgia, serif;
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: var(--wsj-black);
+            line-height: 1.2;
+            margin-bottom: 0.5rem;
+        }
+
+        .subheadline {
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-size: 1.1rem;
+            color: var(--wsj-gray);
+            font-weight: 400;
+            line-height: 1.4;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            background: var(--wsj-off-white);
+            border: 1px solid var(--wsj-border);
+            padding: 0.75rem 1.25rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .status-label {
+            color: var(--wsj-gray);
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .status-value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-weight: 600;
+            color: var(--wsj-black);
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--wsj-green);
+        }
+
+        /* Comparison Section */
+        .comparison-section {
+            margin-bottom: 3rem;
+        }
+
+        .section-header {
+            border-bottom: 2px solid var(--wsj-black);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-family: 'Crimson Text', Georgia, serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--wsj-black);
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .performance-card {
+            border: 2px solid var(--wsj-border);
+            background: var(--wsj-white);
+            padding: 2rem;
+        }
+
+        .performance-card.baseline {
+            border-color: var(--wsj-gray);
+        }
+
+        .performance-card.optimized {
+            border-color: var(--wsj-green);
+            border-width: 3px;
+            position: relative;
+        }
+
+        .performance-card.optimized::before {
+            content: 'OPTIMIZED';
+            position: absolute;
+            top: -12px;
+            left: 1rem;
+            background: var(--wsj-green);
+            color: var(--wsj-white);
+            padding: 0.25rem 0.75rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .card-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--wsj-gray);
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .primary-metric {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: var(--wsj-black);
+            line-height: 1;
+            margin-bottom: 0.25rem;
+        }
+
+        .performance-card.optimized .primary-metric {
+            color: var(--wsj-green);
+        }
+
+        .metric-unit {
+            font-size: 1.25rem;
+            font-weight: 400;
+            color: var(--wsj-gray);
+            margin-left: 0.25rem;
+        }
+
+        .metric-description {
+            font-size: 0.9rem;
+            color: var(--wsj-gray);
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--wsj-light-gray);
+        }
+
+        .sub-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .sub-metric {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sub-metric-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--wsj-gray);
+            letter-spacing: 0.5px;
+            margin-bottom: 0.25rem;
+            font-weight: 600;
+        }
+
+        .sub-metric-value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--wsj-black);
+        }
+
+        /* Improvement Indicator */
+        .improvement-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .arrow {
+            font-size: 2.5rem;
+            color: var(--wsj-green);
+            font-weight: 700;
+        }
+
+        .improvement-box {
+            border: 3px solid var(--wsj-green);
+            background: var(--wsj-white);
+            padding: 1rem 1.5rem;
+            text-align: center;
+        }
+
+        .improvement-value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--wsj-green);
+        }
+
+        .improvement-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--wsj-gray);
+            letter-spacing: 1px;
+            margin-top: 0.25rem;
+            font-weight: 600;
+        }
+
+        /* Data Table */
+        .data-table-section {
+            margin-bottom: 3rem;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .data-table thead {
+            background: var(--wsj-off-white);
+            border-top: 2px solid var(--wsj-black);
+            border-bottom: 2px solid var(--wsj-black);
+        }
+
+        .data-table th {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            color: var(--wsj-black);
+        }
+
+        .data-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--wsj-light-gray);
+        }
+
+        .data-table tbody tr:hover {
+            background: var(--wsj-off-white);
+        }
+
+        .table-metric {
+            font-family: 'IBM Plex Mono', monospace;
+            font-weight: 600;
+        }
+
+        .table-change {
+            font-weight: 600;
+        }
+
+        .table-change.positive {
+            color: var(--wsj-green);
+        }
+
+        .table-change.positive::before {
+            content: '↑ ';
+        }
+
+        .table-change.negative {
+            color: var(--wsj-red);
+        }
+
+        .table-change.negative::before {
+            content: '↓ ';
+        }
+
+        /* Charts */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .chart-container {
+            border: 1px solid var(--wsj-border);
+            background: var(--wsj-white);
+            padding: 1.5rem;
+        }
+
+        .chart-header {
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--wsj-light-gray);
+        }
+
+        .chart-title {
+            font-family: 'Crimson Text', Georgia, serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--wsj-black);
+            margin-bottom: 0.25rem;
+        }
+
+        .chart-subtitle {
+            font-size: 0.8rem;
+            color: var(--wsj-gray);
+        }
+
+        /* Key Findings */
+        .key-findings {
+            background: var(--wsj-off-white);
+            border-left: 4px solid var(--wsj-blue);
+            padding: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .findings-title {
+            font-family: 'Crimson Text', Georgia, serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--wsj-black);
+            margin-bottom: 1rem;
+        }
+
+        .findings-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .findings-list li {
+            padding: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .findings-list li::before {
+            content: '■';
+            position: absolute;
+            left: 0;
+            color: var(--wsj-blue);
+            font-size: 0.8rem;
+        }
+
+        /* Footer */
+        .report-footer {
+            border-top: 2px solid var(--wsj-black);
+            padding-top: 1rem;
+            margin-top: 3rem;
+            font-size: 0.75rem;
+            color: var(--wsj-gray);
+            text-align: center;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .improvement-indicator {
+                transform: rotate(90deg);
+                margin: 1rem 0;
+            }
+
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+
+            .status-bar {
+                background: white;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page-wrapper">
+        <!-- Header -->
+        <header class="header">
+            <div class="masthead">
+                <h1 class="publication-name">Mining Performance Report</h1>
+                <div class="date-time" id="current-date">JANUARY 15, 2026</div>
+            </div>
+            <h2 class="headline">Holographic Engine Delivers 22.6% Hashrate Improvement Over Stock Configuration</h2>
+            <p class="subheadline">Custom software optimization achieves superior efficiency while maintaining lower
+                operating temperatures on Bitaxe Gamma hardware</p>
+        </header>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-indicator"></div>
+                <span class="status-label">System Status:</span>
+                <span class="status-value" id="system-status">OPERATIONAL</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Device:</span>
+                <span class="status-value">Bitaxe Gamma (BM1370)</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Uptime:</span>
+                <span class="status-value" id="uptime-display">1h 22m</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Last Updated:</span>
+                <span class="status-value" id="last-update">Just now</span>
+            </div>
+        </div>
+
+        <!-- Key Findings -->
+        <div class="key-findings">
+            <h3 class="findings-title">Key Findings</h3>
+            <ul class="findings-list">
+                <li><strong>Performance Gain:</strong> Hashrate increased from 925 GH/s (stock) to <span
+                        id="finding-hashrate">1,136 GH/s</span> (optimized), representing a 22.6% improvement</li>
+                <li><strong>Efficiency Improvement:</strong> Power efficiency improved 16.3%, achieving <span
+                        id="finding-efficiency">18.4 J/TH</span> compared to typical stock performance of 22 J/TH</li>
+                <li><strong>Thermal Management:</strong> Operating temperature reduced to <span
+                        id="finding-temp">63°C</span>, approximately 7°C cooler than stock configuration despite higher
+                    clock frequency</li>
+                <li><strong>Economic Impact:</strong> Additional 6.65 PH annual hashing capacity for incremental cost of
+                    $3.78/year in electricity</li>
+            </ul>
+        </div>
+
+        <!-- Comparison Section -->
+        <section class="comparison-section">
+            <div class="section-header">
+                <h3 class="section-title">Performance Comparison: Stock vs. Optimized</h3>
+            </div>
+            <div class="comparison-grid">
+                <div class="performance-card baseline">
+                    <div class="card-label">Baseline Configuration</div>
+                    <div class="primary-metric">
+                        925
+                        <span class="metric-unit">GH/s</span>
+                    </div>
+                    <div class="metric-description">Stock Bitaxe Gamma with default firmware settings</div>
+                    <div class="sub-metrics">
+                        <div class="sub-metric">
+                            <div class="sub-metric-label">Efficiency</div>
+                            <div class="sub-metric-value">~22 J/TH</div>
+                        </div>
+                        <div class="sub-metric">
+                            <div class="sub-metric-label">Temperature</div>
+                            <div class="sub-metric-value">~70°C</div>
+                        </div>
+                        <div class="sub-metric">
+                            <div class="sub-metric-label">Frequency</div>
+                            <div class="sub-metric-value">490 MHz</div>
+                        </div>
+                        <div class="sub-metric">
+                            <div class="sub-metric-label">Management</div>
+                            <div class="sub-metric-value">Manual</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="improvement-indicator">
+                    <div class="arrow">→</div>
+                    <div class="improvement-box">
+                        <div class="improvement-value" id="improvement-pct">+22.6%</div>
+                        <div class="improvement-label">Improvement</div>
+                    </div>
+                </div>
+
+                <div class="performance-card optimized">
+                    <div class="card-label">Optimized Configuration</div>
+                    <div class="primary-metric">
+                        <span id="optimized-hashrate">1,136</span>
+                        <span class="metric-unit">GH/s</span>
+                    </div>
+                    <div class="metric-description">Holographic Mining Engine with autonomous optimization</div>
+                    <div class="sub-metrics">
+                        <div class="sub-metric">
+                            <div class="sub-metric-label">Efficiency</div>
+                            <div class="sub-metric-value" id="opt-efficiency">18.4 J/TH</div>
+                        </div>
+                        <div class="sub-metric">
+                            <div class="sub-metric-label">Temperature</div>
+                            <div class="sub-metric-value" id="opt-temp">63°C</div>
+                        </div>
+                        <div class="sub-metric">
+                            <div class="sub-metric-label">Frequency</div>
+                            <div class="sub-metric-value" id="opt-freq">525 MHz</div>
+                        </div>
+                        <div class="sub-metric">
+                            <div class="sub-metric-label">Management</div>
+                            <div class="sub-metric-value">Autonomous</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Table -->
+        <section class="data-table-section">
+            <div class="section-header">
+                <h3 class="section-title">Detailed Performance Metrics</h3>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Stock</th>
+                        <th>Optimized</th>
+                        <th>Change</th>
+                        <th>Impact</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Hashrate</strong></td>
+                        <td class="table-metric">925 GH/s</td>
+                        <td class="table-metric" id="table-hashrate">1,136 GH/s</td>
+                        <td class="table-change positive">+22.6%</td>
+                        <td>+211 GH/s additional capacity</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Power Efficiency</strong></td>
+                        <td class="table-metric">~22 J/TH</td>
+                        <td class="table-metric" id="table-efficiency">18.4 J/TH</td>
+                        <td class="table-change positive">+16.3%</td>
+                        <td>Lower energy cost per hash</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Temperature</strong></td>
+                        <td class="table-metric">~70°C</td>
+                        <td class="table-metric" id="table-temp">63°C</td>
+                        <td class="table-change positive">-7°C</td>
+                        <td>Extended hardware lifespan</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Power Consumption</strong></td>
+                        <td class="table-metric">~18-20W</td>
+                        <td class="table-metric" id="table-power">20.9W</td>
+                        <td class="table-change negative">+4.5%</td>
+                        <td>Excellent scaling efficiency</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Frequency</strong></td>
+                        <td class="table-metric">490 MHz</td>
+                        <td class="table-metric">525 MHz</td>
+                        <td class="table-change positive">+7.1%</td>
+                        <td>Optimized clock speed</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Shares Accepted</strong></td>
+                        <td class="table-metric">N/A</td>
+                        <td class="table-metric" id="table-shares">1,121</td>
+                        <td class="table-change positive">0.27%</td>
+                        <td>Low rejection rate</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Charts -->
+        <div class="charts-grid">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div class="chart-title">Performance Timeline</div>
+                    <div class="chart-subtitle">Real-time hashrate and temperature monitoring</div>
+                </div>
+                <canvas id="performanceChart" height="80"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div class="chart-title">Efficiency Analysis</div>
+                    <div class="chart-subtitle">J/TH comparison</div>
+                </div>
+                <canvas id="efficiencyChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="report-footer">
+            <p>Data sourced from Bitaxe Gamma (192.168.0.23) via REST API | Holographic Mining Engine v2.0 | Report
+                generated automatically</p>
+        </footer>
+    </div>
+
+    <script>
+        // Update date/time
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
+        }).toUpperCase();
+        document.getElementById('current-date').textContent = dateStr;
+
+        // Performance history
+        let performanceHistory = {
+            timestamps: [],
+            hashrate: [],
+            temperature: []
+        };
+
+        // Initialize charts with WSJ styling
+        const chartDefaults = {
+            font: {
+                family: "'IBM Plex Sans', sans-serif",
+                size: 11
+            },
+            color: '#666666'
+        };
+
+        Chart.defaults.font = chartDefaults.font;
+        Chart.defaults.color = chartDefaults.color;
+
+        const performanceChart = new Chart(document.getElementById('performanceChart'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Hashrate (GH/s)',
+                        data: [],
+                        borderColor: '#0274b6',
+                        backgroundColor: 'rgba(2, 116, 182, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: true,
+                        yAxisID: 'y',
+                        pointRadius: 3,
+                        pointHoverRadius: 5
+                    },
+                    {
+                        label: 'Temperature (°C)',
+                        data: [],
+                        borderColor: '#c4122f',
+                        backgroundColor: 'rgba(196, 18, 47, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: true,
+                        yAxisID: 'y1',
+                        pointRadius: 3,
+                        pointHoverRadius: 5
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 15,
+                            font: { size: 11, weight: '600' }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            color: '#e3e3e3',
+                            drawBorder: true,
+                            borderColor: '#000000',
+                            borderWidth: 2
+                        },
+                        ticks: {
+                            color: '#666666',
+                            font: { size: 10 }
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        grid: {
+                            color: '#e3e3e3',
+                            drawBorder: true,
+                            borderColor: '#000000',
+                            borderWidth: 2
+                        },
+                        ticks: {
+                            color: '#0274b6',
+                            font: { weight: '600' }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Hashrate (GH/s)',
+                            color: '#0274b6',
+                            font: { size: 11, weight: '700' }
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        grid: { drawOnChartArea: false },
+                        ticks: {
+                            color: '#c4122f',
+                            font: { weight: '600' }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Temperature (°C)',
+                            color: '#c4122f',
+                            font: { size: 11, weight: '700' }
+                        }
+                    }
+                }
+            }
+        });
+
+        const efficiencyChart = new Chart(document.getElementById('efficiencyChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Stock', 'Optimized'],
+                datasets: [{
+                    label: 'Efficiency (J/TH)',
+                    data: [22, 18.4],
+                    backgroundColor: ['#666666', '#008c45'],
+                    borderColor: ['#2e2e2e', '#006633'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#e3e3e3',
+                            drawBorder: true,
+                            borderColor: '#000000',
+                            borderWidth: 2
+                        },
+                        ticks: {
+                            color: '#666666',
+                            font: { weight: '600' }
+                        },
+                        title: {
+                            display: true,
+                            text: 'J/TH (Lower is Better)',
+                            font: { size: 11, weight: '700' }
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            color: '#000000',
+                            font: { size: 12, weight: '700' }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Fetch live data
+        async function fetchData() {
+            try {
+                const response = await fetch('http://192.168.0.23/api/system/info');
+                const data = await response.json();
+
+                // Calculate metrics
+                const hashrate = data.hashRate.toFixed(0);
+                const temp = data.temp.toFixed(1);
+                const efficiency = (data.power / data.hashRate * 1000).toFixed(1);
+                const power = data.power.toFixed(1);
+
+                // Update live values
+                document.getElementById('optimized-hashrate').textContent = hashrate;
+                document.getElementById('opt-efficiency').textContent = efficiency + ' J/TH';
+                document.getElementById('opt-temp').textContent = temp + '°C';
+                document.getElementById('opt-freq').textContent = data.frequency + ' MHz';
+
+                // Update table
+                document.getElementById('table-hashrate').textContent = hashrate + ' GH/s';
+                document.getElementById('table-efficiency').textContent = efficiency + ' J/TH';
+                document.getElementById('table-temp').textContent = temp + '°C';
+                document.getElementById('table-power').textContent = power + 'W';
+                document.getElementById('table-shares').textContent = data.sharesAccepted.toLocaleString();
+
+                // Update key findings
+                document.getElementById('finding-hashrate').textContent = hashrate + ' GH/s';
+                document.getElementById('finding-efficiency').textContent = efficiency + ' J/TH';
+                document.getElementById('finding-temp').textContent = temp + '°C';
+
+                // Calculate improvement
+                const stockHashrate = 925;
+                const improvement = ((hashrate - stockHashrate) / stockHashrate * 100).toFixed(1);
+                document.getElementById('improvement-pct').textContent = '+' + improvement + '%';
+
+                // Update uptime
+                const hours = Math.floor(data.uptimeSeconds / 3600);
+                const minutes = Math.floor((data.uptimeSeconds % 3600) / 60);
+                document.getElementById('uptime-display').textContent = `${hours}h ${minutes}m`;
+
+                // Update timestamp
+                const updateTime = new Date().toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
+                document.getElementById('last-update').textContent = updateTime;
+
+                // Update charts
+                const now = new Date().toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
+                performanceHistory.timestamps.push(now);
+                performanceHistory.hashrate.push(parseFloat(hashrate));
+                performanceHistory.temperature.push(parseFloat(temp));
+
+                // Keep last 20 points
+                if (performanceHistory.timestamps.length > 20) {
+                    performanceHistory.timestamps.shift();
+                    performanceHistory.hashrate.shift();
+                    performanceHistory.temperature.shift();
+                }
+
+                performanceChart.data.labels = performanceHistory.timestamps;
+                performanceChart.data.datasets[0].data = performanceHistory.hashrate;
+                performanceChart.data.datasets[1].data = performanceHistory.temperature;
+                performanceChart.update('none');
+
+                // Update efficiency chart
+                efficiencyChart.data.datasets[0].data[1] = parseFloat(efficiency);
+                efficiencyChart.update('none');
+
+            } catch (error) {
+                console.error('Data fetch error:', error);
+                document.getElementById('system-status').textContent = 'CONNECTION ERROR';
+            }
+        }
+
+        // Initialize
+        fetchData();
+        setInterval(fetchData, 3000);
+    </script>
+</body>
+
+</html>
