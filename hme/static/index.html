@@ -23,6 +23,14 @@
     }
     h1 { margin:0; font-size:1.15rem; font-weight:750; letter-spacing:-.02em; }
     h1 em { font-style:normal; color:var(--c); font-weight:500; margin-left:8px; font-size:.78rem; }
+    .banner {
+      margin:0 18px 0; padding:10px 14px; border-radius:10px; font-size:.82rem;
+      background:rgba(45,212,191,.08); border:1px solid rgba(45,212,191,.25); color:#99f6e4;
+      display:none;
+    }
+    .banner.warn { display:block; background:rgba(240,180,41,.1); border-color:rgba(240,180,41,.35); color:#fde68a; }
+    .banner.crit { display:block; background:rgba(255,107,107,.1); border-color:rgba(255,107,107,.35); color:#fecaca; }
+    .banner.ok { display:block; }
     .dot { width:9px; height:9px; border-radius:50%; background:#334155; display:inline-block; margin-right:8px; }
     .dot.on { background:var(--g); box-shadow:0 0 0 4px rgba(61,214,140,.15); }
     .dot.err { background:var(--r); box-shadow:0 0 0 4px rgba(255,107,107,.15); }
@@ -81,6 +89,7 @@
     <span class="pill" id="agePill">age —</span>
   </header>
   <div class="errbox" id="err"></div>
+  <div class="banner" id="poolBanner"></div>
   <main>
     <div class="grid">
       <div class="card"><div class="k">Hashrate</div><div class="v" id="hr">—</div><div class="s" id="hrSub">GH/s</div></div>
@@ -208,6 +217,16 @@ async function tick() {
     $("poolPill").className = "pill " + (fb ? "warn" : "ok");
     $("poolPill").textContent = (fb ? "fallback " : "") + (fb ? (d.stratum?.fallback || "pool") : (d.stratum?.url || "pool"));
     $("agePill").textContent = new Date().toLocaleTimeString();
+    const pb = $("poolBanner");
+    const ph = d.pool_health;
+    if (ph && ph.recommendation) {
+      pb.textContent = (d.free_power ? "Free-power mode · max stable HR  ·  " : "") + ph.recommendation;
+      pb.className = "banner " + (ph.severity === "critical" ? "crit" : (ph.severity === "ok" ? "ok" : "warn"));
+    } else {
+      pb.className = "banner";
+      pb.textContent = d.free_power ? "Free-power mode · objective max_hashrate" : "";
+      if (d.free_power) pb.className = "banner ok";
+    }
 
     $("hr").textContent = n(m.hashrate_ghs, 1);
     $("hrSub").textContent = `${n(m.hashrate_ths, 3)} TH/s`;
@@ -220,15 +239,21 @@ async function tick() {
     $("rej").textContent = n(m.reject_pct, 3) + "%";
     $("rejSub").textContent = `${m.shares_accepted ?? "—"} ok / ${m.shares_rejected ?? "—"} rej`;
 
+    const st = d.share_truth || {};
     const rows = [
       ["IP", d.ip || "—"],
       ["Hostname", d.hostname || "—"],
+      ["Objective", (d.objective || "—") + (d.free_power ? " (free power)" : "")],
+      ["Score", d.score != null ? n(d.score, 1) : "—"],
       ["Fan", m.fan_rpm != null ? m.fan_rpm + " rpm" : "—"],
-      ["Core V actual", m.voltage_mv != null ? m.voltage_mv + " mV" : "—"],
+      ["VR temp", m.vr_temp_c != null ? n(m.vr_temp_c, 0) + "°C" : "—"],
+      ["Vin", m.vin_mv != null ? n(m.vin_mv, 0) + " mV" : "—"],
       ["Primary pool", d.stratum?.url || "—"],
       ["Fallback pool", d.stratum?.fallback || "—"],
       ["Active", d.stratum?.using_fallback ? "fallback" : "primary"],
-      ["Unit sniff", m.hashrate_unit || "—"],
+      ["Share acc/min", st.share_accept_per_min != null ? n(st.share_accept_per_min, 2) : "building…"],
+      ["Share HR est", st.share_hr_ghs_est != null ? n(st.share_hr_ghs_est, 1) + " GH/s" : "—"],
+      ["Ghost HR?", st.ghost_hashrate ? "YES — API > share est" : "no"],
     ];
     $("devRows").innerHTML = rows.map(([k,v]) =>
       `<tr><th style="width:40%">${k}</th><td>${v}</td></tr>`

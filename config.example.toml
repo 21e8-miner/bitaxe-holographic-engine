@@ -14,47 +14,51 @@ allow_restart = false
 [bounds]
 # Safe V/F envelope — adjust per board/cooling
 min_freq_mhz = 425
-max_freq_mhz = 575
+max_freq_mhz = 700
 base_freq_mhz = 500
 min_voltage_mv = 1050
 max_voltage_mv = 1250
-# Absolute abort conditions
-max_temp_c = 70.0
-max_power_w = 28.0
-# Soft warn (log only)
-warn_temp_c = 65.0
+# Absolute abort conditions (hardware safety — not electricity cost)
+max_temp_c = 75.0
+max_vr_temp_c = 86.0
+max_power_w = 40.0
+min_vin_mv = 4800.0
+max_reject_pct = 2.0
+# Soft warn (scoring penalties)
+warn_temp_c = 70.0
+warn_vr_temp_c = 80.0
 
 [tuner]
 # true = log proposals, never PATCH device
 dry_run = true
+# max_hashrate = free power (default) | efficiency = paid power / J/TH
+objective = "max_hashrate"
 # Minimum seconds between applied changes
 min_change_interval_sec = 300
 # Seconds to soak after an applied change before score
 dwell_sec = 120
-# Poll interval while measuring / soaking
 poll_sec = 5.0
-# Abort if hashrate stays near-zero this long (seconds)
 zero_hash_abort_sec = 45
-# Require this many consecutive good samples after dwell
 good_samples = 3
-# Reject candidate if J/TH worsens by more than this fraction vs baseline
-max_jth_regression = 0.08
-# Reject if hashrate drops more than this fraction vs baseline
+# free-power: require this HR gain to accept a step
+min_hashrate_gain = 0.02
 max_hashrate_drop = 0.12
-# Frequency step search (MHz)
+# paid-power only: reject if J/TH worsens by more than this
+max_jth_regression = 0.08
 freq_step_mhz = 25
-# Optional voltage steps around current (mV); empty = freq-only
 voltage_steps_mv = []
-# Search modes: "grid" | "climb" (hill-climb from base)
 mode = "climb"
-# Max applied steps per run (safety)
 max_steps = 8
 
 [qc]
-# If AxeOS reports GH/s, convert; "auto" sniffs magnitude
 hashrate_unit = "auto"   # auto | ghs | ths
-# Reference J/TH by chip (thermodynamic QC target, not a hard fail)
+free_power = true
 ref_j_per_th = { BM1366 = 17.0, BM1368 = 16.5, BM1370 = 15.5, default = 17.0 }
+
+[pool]
+probe_enabled = true
+tcp_timeout_sec = 2.5
+warn_fallback_when_primary_up = true
 
 [logging]
 dir = "logs"

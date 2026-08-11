@@ -36,7 +36,7 @@ class BitaxeClient:
         self.device: DeviceConfig = cfg.device
         self.bounds: BoundsConfig = cfg.bounds
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "hme-safe-tuner/1.4"})
+        self.session.headers.update({"User-Agent": "hme-safe-tuner/1.5"})
 
     @property
     def base(self) -> str:
@@ -135,8 +135,15 @@ class BitaxeClient:
         b = self.bounds
         if m.temp_c >= b.max_temp_c:
             return False, f"temp {m.temp_c:.1f}°C ≥ max {b.max_temp_c}°C"
+        if m.vr_temp_c is not None and m.vr_temp_c >= b.max_vr_temp_c:
+            return False, f"VR temp {m.vr_temp_c:.1f}°C ≥ max {b.max_vr_temp_c}°C"
         if m.power_w > 0 and m.power_w >= b.max_power_w:
             return False, f"power {m.power_w:.1f}W ≥ max {b.max_power_w}W"
+        # Vin: AxeOS reports ~5000 mV rail; only enforce if looks like rail not core
+        if m.vin_mv is not None and m.vin_mv > 2000 and m.vin_mv < b.min_vin_mv:
+            return False, f"Vin {m.vin_mv:.0f}mV < min {b.min_vin_mv:.0f}mV"
+        if m.reject_pct is not None and m.reject_pct >= b.max_reject_pct:
+            return False, f"reject {m.reject_pct:.2f}% ≥ max {b.max_reject_pct:.2f}%"
         return True, "ok"
 
     def apply_vf(

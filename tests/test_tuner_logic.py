@@ -13,17 +13,18 @@ def _m(hr=1000.0, power=20.0, temp=60.0, freq=500, volt=1150):
 
 
 def test_evaluate_accepts_improvement():
-    cfg = _from_raw({})
+    # free-power default: need ≥2% HR gain
+    cfg = _from_raw({"tuner": {"objective": "max_hashrate", "min_hashrate_gain": 0.02}})
     t = SafeTuner(cfg)
     base = _m(1000, 20, 60, 500)
-    better = _m(1100, 20.5, 61, 525)  # more hash, similar power
+    better = _m(1100, 20.5, 61, 525)
     ok, reason, bs, cs = t.evaluate(base, better)
     assert ok, reason
     assert cs > bs
 
 
 def test_evaluate_rejects_hot():
-    cfg = _from_raw({"bounds": {"max_temp_c": 70}})
+    cfg = _from_raw({"bounds": {"max_temp_c": 70}, "tuner": {"objective": "max_hashrate"}})
     t = SafeTuner(cfg)
     base = _m(1000, 20, 60, 500)
     hot = _m(1200, 25, 75, 575)
@@ -33,13 +34,23 @@ def test_evaluate_rejects_hot():
 
 
 def test_evaluate_rejects_jth_regression():
-    cfg = _from_raw({"tuner": {"max_jth_regression": 0.05}})
+    cfg = _from_raw({"tuner": {"objective": "efficiency", "max_jth_regression": 0.05}})
     t = SafeTuner(cfg)
     base = _m(1000, 18, 60, 500)   # 18 J/TH
     worse = _m(1000, 22, 60, 525)  # 22 J/TH — big regression
     ok, reason, _, _ = t.evaluate(base, worse)
     assert not ok
     assert "J/TH" in reason or "regression" in reason.lower()
+
+
+def test_max_hashrate_rejects_tiny_gain():
+    cfg = _from_raw({"tuner": {"objective": "max_hashrate", "min_hashrate_gain": 0.05}})
+    t = SafeTuner(cfg)
+    base = _m(1000, 20, 60, 500)
+    tiny = _m(1020, 20.2, 60, 525)  # +2% only
+    ok, reason, _, _ = t.evaluate(base, tiny)
+    assert not ok
+    assert "gain" in reason.lower() or "HR" in reason
 
 
 def test_generate_candidates_climb():

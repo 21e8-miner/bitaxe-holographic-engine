@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .client import ApplyResult, BitaxeClient, BitaxeError
 from .config import HMEConfig
 from .logger import TelemetryLog
-from .units import NormalizedMetrics, score_efficiency
+from .units import NormalizedMetrics, score_metrics
 
 log = logging.getLogger("hme.tuner")
 
@@ -39,6 +39,10 @@ class SampleWindow:
         jths = [s.j_per_th for s in self.samples if s.j_per_th is not None]
         if jths:
             jth = sum(jths) / len(jths)
+        vr = None
+        vrs = [s.vr_temp_c for s in self.samples if s.vr_temp_c is not None]
+        if vrs:
+            vr = sum(vrs) / len(vrs)
         freq = next((s.frequency_mhz for s in reversed(self.samples) if s.frequency_mhz is not None), None)
         volt = next((s.voltage_mv for s in reversed(self.samples) if s.voltage_mv is not None), None)
         last = self.samples[-1]
@@ -52,6 +56,13 @@ class SampleWindow:
             j_per_th=jth,
             raw_hashrate=last.raw_hashrate,
             hashrate_unit_assumed=last.hashrate_unit_assumed,
+            vr_temp_c=vr if vr is not None else last.vr_temp_c,
+            vin_mv=last.vin_mv,
+            shares_accepted=last.shares_accepted,
+            shares_rejected=last.shares_rejected,
+            reject_pct=last.reject_pct,
+            using_fallback_stratum=last.using_fallback_stratum,
+            fan_rpm=last.fan_rpm,
         )
 
 
@@ -186,7 +197,13 @@ class SafeTuner:
     # ── accept / reject ───────────────────────────────────────
 
     def _score(self, m: NormalizedMetrics) -> float:
-        return score_efficiency(m, temp_soft=self.cfg.bounds.warn_temp_c)
+        return score_metrics(
+            m,
+            objective=self.cfg.tuner.objective,
+            temp_soft=self.cfg.bounds.warn_temp_c,
+            vr_soft=self.cfg.bounds.warn_vr_temp_c,
+            max_reject_pct=self.cfg.bounds.max_reject_pct,
+        )
 
     def evaluate(
         self,
@@ -195,6 +212,7 @@ class SafeTuner:
     ) -> Tuple[bool, str, float, float]:
         """Return (accept, reason, base_score, cand_score)."""
         t = self.cfg.tuner
+        obj = (t.objective or "max_hashrate").lower()
         bs = self._score(baseline)
         cs = self._score(candidate)
 
@@ -202,6 +220,31 @@ class SafeTuner:
         if not ok:
             return False, f"gate: {reason}", bs, cs
 
+        # Free-power / max hashrate: require real HR gain; J/TH only soft
+        if obj in ("max_hashrate", "hashrate", "max_hr", "free"):
+            if baseline.hashrate_ghs > 0:
+                gain = (candidate.hashrate_ghs - baseline.hashrate_ghs) / baseline.hashrate_ghs
+                if gain < t.min_hashrate_gain:
+                    return False, (
+                        f"HR gain {gain:.1%} < min {t.min_hashrate_gain:.0%} "
+                        f"({baseline.hashrate_ghs:.0f}→{candidate.hashrate_ghs:.0f} GH/s)"
+                    ), bs, cs
+            if (
+                baseline.reject_pct is not None
+                and candidate.reject_pct is not None
+                and candidate.reject_pct > baseline.reject_pct + 0.15
+            ):
+                return False, (
+                    f"reject% rose {baseline.reject_pct:.3f}→{candidate.reject_pct:.3f}"
+                ), bs, cs
+            if cs <= bs:
+                return False, f"score {cs:.1f} ≤ baseline {bs:.1f}", bs, cs
+            return True, (
+                f"HR {baseline.hashrate_ghs:.0f}→{candidate.hashrate_ghs:.0f} GH/s "
+                f"score {bs:.1f}→{cs:.1f}"
+            ), bs, cs
+
+        # Efficiency / paid-power path
         if baseline.j_per_th and candidate.j_per_th:
             if candidate.j_per_th > baseline.j_per_th * (1.0 + t.max_jth_regression):
                 return False, (
@@ -295,10 +338,10 @@ class SafeTuner:
             ip=self.cfg.device.ip,
         )
         log.info(
-            "SafeTuner start dry_run=%s mode=%s max_steps=%s bounds=%s–%s MHz temp≤%.0f°C",
-            dry, self.cfg.tuner.mode, steps,
+            "SafeTuner start dry_run=%s objective=%s mode=%s max_steps=%s bounds=%s–%s MHz temp≤%.0f°C VR≤%.0f°C",
+            dry, self.cfg.tuner.objective, self.cfg.tuner.mode, steps,
             self.cfg.bounds.min_freq_mhz, self.cfg.bounds.max_freq_mhz,
-            self.cfg.bounds.max_temp_c,
+            self.cfg.bounds.max_temp_c, self.cfg.bounds.max_vr_temp_c,
         )
 
         # Baseline
@@ -414,6 +457,8 @@ class SafeTuner:
 
         summary = {
             "dry_run": dry,
+            "objective": self.cfg.tuner.objective,
+            "free_power": self.cfg.qc.free_power,
             "baseline": _mdict(baseline),
             "baseline_score": base_score,
             "best": _mdict(best),
@@ -446,9 +491,11 @@ def _mdict(m: Optional[NormalizedMetrics]) -> Optional[Dict[str, Any]]:
         "hashrate_ths": round(m.hashrate_ths, 6),
         "power_w": round(m.power_w, 3),
         "temp_c": round(m.temp_c, 2),
+        "vr_temp_c": m.vr_temp_c,
         "frequency_mhz": m.frequency_mhz,
         "voltage_mv": m.voltage_mv,
         "j_per_th": None if m.j_per_th is None else round(m.j_per_th, 3),
+        "reject_pct": m.reject_pct,
         "hashrate_unit": m.hashrate_unit_assumed,
     }
 
@@ -459,10 +506,12 @@ def print_summary(summary: Dict[str, Any]) -> None:
     print("Safe tuner summary")
     print("=" * 60)
     print(f"dry_run   : {summary.get('dry_run')}")
+    print(f"objective : {summary.get('objective')}  free_power={summary.get('free_power')}")
     b = summary.get("baseline") or {}
     best = summary.get("best") or {}
     print(f"baseline  : {b.get('hashrate_ghs')} GH/s | {b.get('j_per_th')} J/TH | "
-          f"{b.get('temp_c')}°C | {b.get('frequency_mhz')} MHz | score={summary.get('baseline_score')}")
+          f"{b.get('temp_c')}°C VR={b.get('vr_temp_c')} | {b.get('frequency_mhz')} MHz | "
+          f"score={summary.get('baseline_score')}")
     print(f"best      : {best.get('hashrate_ghs')} GH/s | {best.get('j_per_th')} J/TH | "
           f"{best.get('temp_c')}°C | profile={summary.get('best_profile')} | score={summary.get('best_score')}")
     print(f"proposals : {summary.get('proposal_count')}  accepted: {summary.get('accepted_count')}")
@@ -472,5 +521,5 @@ def print_summary(summary: Dict[str, Any]) -> None:
         print(f"  [{mark}] {s.get('candidate')}: {s.get('reason')}")
     print("=" * 60)
     if summary.get("dry_run"):
-        print("No hardware changes (dry-run). Re-run with: python -m hme tune --apply")
+        print("No hardware changes (dry-run). Re-run with: python -m hme tune --apply --yes")
     print()

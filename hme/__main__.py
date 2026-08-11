@@ -41,6 +41,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 
 def cmd_status(args: argparse.Namespace) -> int:
+    from .pool_health import assess_pool_health, report_to_dict
+    from .units import score_metrics
+
     cfg = load_config(args.config)
     client = BitaxeClient(cfg)
     try:
@@ -50,44 +53,51 @@ def cmd_status(args: argparse.Namespace) -> int:
     except BitaxeError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-    acc = info.get("sharesAccepted")
-    rej = info.get("sharesRejected")
-    try:
-        acc_i = int(acc) if acc is not None else None
-        rej_i = int(rej) if rej is not None else None
-    except (TypeError, ValueError):
-        acc_i = rej_i = None
-    rej_pct = None
-    if acc_i is not None and rej_i is not None and (acc_i + rej_i) > 0:
-        rej_pct = 100.0 * rej_i / (acc_i + rej_i)
+    gate_ok, gate_reason = client.gate_ok(m)
     using_fb = bool(info.get("isUsingFallbackStratum"))
     stratum = (
         info.get("fallbackStratumURL") if using_fb else info.get("stratumURL")
     ) or info.get("stratumURL") or info.get("fallbackStratumURL")
+    pool = None
+    if cfg.pool.probe_enabled:
+        pool = report_to_dict(assess_pool_health(info, tcp_timeout=cfg.pool.tcp_timeout_sec))
+    score = score_metrics(
+        m,
+        objective=cfg.tuner.objective,
+        temp_soft=cfg.bounds.warn_temp_c,
+        vr_soft=cfg.bounds.warn_vr_temp_c,
+        max_reject_pct=cfg.bounds.max_reject_pct,
+    )
     payload = {
         "ip": cfg.device.ip,
         "chip": chip,
+        "objective": cfg.tuner.objective,
+        "free_power": cfg.qc.free_power,
         "hashrate_ghs": round(m.hashrate_ghs, 3),
         "hashrate_ths": round(m.hashrate_ths, 6),
         "power_w": round(m.power_w, 3),
         "temp_c": round(m.temp_c, 2),
-        "vr_temp_c": info.get("vrTemp"),
+        "vr_temp_c": m.vr_temp_c,
+        "vin_mv": m.vin_mv,
         "frequency_mhz": m.frequency_mhz,
         "voltage_mv": m.voltage_mv,
         "j_per_th": None if m.j_per_th is None else round(m.j_per_th, 3),
         "hashrate_unit": m.hashrate_unit_assumed,
         "raw_hashrate": m.raw_hashrate,
-        "shares_accepted": acc_i,
-        "shares_rejected": rej_i,
-        "reject_pct": None if rej_pct is None else round(rej_pct, 4),
-        "fan_rpm": info.get("fanrpm"),
+        "shares_accepted": m.shares_accepted,
+        "shares_rejected": m.shares_rejected,
+        "reject_pct": None if m.reject_pct is None else round(m.reject_pct, 4),
+        "fan_rpm": m.fan_rpm,
         "uptime_sec": info.get("uptimeSeconds"),
         "stratum": stratum,
         "stratum_primary": info.get("stratumURL"),
         "stratum_fallback": info.get("fallbackStratumURL"),
         "using_fallback_stratum": using_fb,
         "version": info.get("version"),
-        "gates_ok": client.gate_ok(m)[0],
+        "gates_ok": gate_ok,
+        "gate_reason": gate_reason,
+        "score": round(score, 2),
+        "pool_health": pool,
     }
     if args.json:
         print(json.dumps(payload, indent=2))
@@ -95,16 +105,22 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(
             f"{payload['ip']}  {payload['chip']}  "
             f"{payload['hashrate_ghs']} GH/s  {payload['power_w']} W  "
-            f"{payload['temp_c']}°C  {payload['j_per_th']} J/TH  "
+            f"{payload['temp_c']}°C  VR={payload['vr_temp_c']}  "
+            f"{payload['j_per_th']} J/TH  "
             f"{payload['frequency_mhz']} MHz / {payload['voltage_mv']} mV"
         )
-        if acc_i is not None:
+        print(
+            f"  objective={payload['objective']} free_power={payload['free_power']} "
+            f"score={payload['score']} gates={'OK' if gate_ok else gate_reason}"
+        )
+        if m.shares_accepted is not None:
             print(
-                f"  shares {acc_i} ok / {rej_i} rej ({payload['reject_pct']}%)  "
-                f"fan {payload['fan_rpm']} rpm  "
-                f"stratum={'fallback ' if payload['using_fallback_stratum'] else ''}"
-                f"{payload['stratum']}"
+                f"  shares {m.shares_accepted} ok / {m.shares_rejected} rej "
+                f"({payload['reject_pct']}%)  fan {payload['fan_rpm']} rpm  "
+                f"stratum={'fallback ' if using_fb else ''}{stratum}"
             )
+        if pool:
+            print(f"  pool[{pool.get('severity')}]: {pool.get('recommendation')}")
     return 0
 
 
@@ -166,9 +182,14 @@ def cmd_serve(args: argparse.Namespace) -> int:
     from flask import Flask, jsonify, send_from_directory
     from flask_cors import CORS
 
+    from .pool_health import assess_pool_health, report_to_dict
+    from .share_truth import ShareTruthTracker
+    from .units import score_metrics
+
     cfg = load_config(args.config)
     client = BitaxeClient(cfg)
     tlog = TelemetryLog(cfg)
+    shares = ShareTruthTracker()
     static_dir = Path(__file__).resolve().parent / "static"
     app = Flask("hme", static_folder=str(static_dir), static_url_path="/static")
     CORS(app)
@@ -198,41 +219,69 @@ def cmd_serve(args: argparse.Namespace) -> int:
         try:
             info = client.system_info()
             m = client.metrics(info)
+            shares.push(m, info)
             tlog.sample(m, extra={
-                "shares_accepted": info.get("sharesAccepted"),
-                "shares_rejected": info.get("sharesRejected"),
+                "shares_accepted": m.shares_accepted,
+                "shares_rejected": m.shares_rejected,
+                "objective": cfg.tuner.objective,
             })
-            acc = info.get("sharesAccepted") or 0
-            rej = info.get("sharesRejected") or 0
-            total = acc + rej
+            gate_ok, gate_reason = client.gate_ok(m)
+            pool = None
+            if cfg.pool.probe_enabled:
+                pool = report_to_dict(
+                    assess_pool_health(info, tcp_timeout=cfg.pool.tcp_timeout_sec)
+                )
             return jsonify({
                 "chip": client.detect_chip(info),
                 "version": info.get("version"),
                 "hostname": info.get("hostname"),
+                "objective": cfg.tuner.objective,
+                "free_power": cfg.qc.free_power,
+                "score": score_metrics(
+                    m,
+                    objective=cfg.tuner.objective,
+                    temp_soft=cfg.bounds.warn_temp_c,
+                    vr_soft=cfg.bounds.warn_vr_temp_c,
+                    max_reject_pct=cfg.bounds.max_reject_pct,
+                ),
                 "metrics": {
                     "hashrate_ghs": m.hashrate_ghs,
                     "hashrate_ths": m.hashrate_ths,
                     "power_w": m.power_w,
                     "temp_c": m.temp_c,
-                    "vr_temp_c": info.get("vrTemp"),
+                    "vr_temp_c": m.vr_temp_c,
+                    "vin_mv": m.vin_mv,
                     "frequency_mhz": m.frequency_mhz,
                     "voltage_mv": m.voltage_mv,
                     "j_per_th": m.j_per_th,
                     "hashrate_unit": m.hashrate_unit_assumed,
-                    "fan_rpm": info.get("fanrpm"),
-                    "shares_accepted": acc,
-                    "shares_rejected": rej,
-                    "reject_pct": (100.0 * rej / total) if total else 0.0,
+                    "fan_rpm": m.fan_rpm,
+                    "shares_accepted": m.shares_accepted,
+                    "shares_rejected": m.shares_rejected,
+                    "reject_pct": m.reject_pct or 0.0,
                 },
+                "share_truth": shares.window(300.0),
                 "stratum": {
                     "url": info.get("stratumURL"),
                     "fallback": info.get("fallbackStratumURL"),
                     "using_fallback": bool(info.get("isUsingFallbackStratum")),
                     "user": info.get("stratumUser"),
                 },
-                "gates_ok": client.gate_ok(m)[0],
+                "pool_health": pool,
+                "gates_ok": gate_ok,
+                "gate_reason": gate_reason,
                 "ip": cfg.device.ip,
             })
+        except BitaxeError as e:
+            return jsonify({"error": str(e)}), 502
+
+    @app.get("/api/pool")
+    def pool_api():
+        try:
+            info = client.system_info()
+            return jsonify(report_to_dict(
+                assess_pool_health(info, tcp_timeout=cfg.pool.tcp_timeout_sec)
+            ))
         except BitaxeError as e:
             return jsonify({"error": str(e)}), 502
 

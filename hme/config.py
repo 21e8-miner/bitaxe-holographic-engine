@@ -35,20 +35,28 @@ class BoundsConfig:
     min_voltage_mv: int = 1050
     max_voltage_mv: int = 1250
     max_temp_c: float = 70.0
-    max_power_w: float = 28.0
+    max_power_w: float = 40.0  # hardware safety (AxeOS maxPower often 40), not economic
     warn_temp_c: float = 65.0
+    max_vr_temp_c: float = 86.0
+    warn_vr_temp_c: float = 80.0
+    min_vin_mv: float = 4800.0  # ~4.8V rail floor
+    max_reject_pct: float = 2.0  # hard gate on lifetime reject%
 
 
 @dataclass
 class TunerConfig:
     dry_run: bool = True
+    # max_hashrate = free power (default); efficiency = paid power / min J/TH
+    objective: str = "max_hashrate"
     min_change_interval_sec: int = 300
     dwell_sec: int = 120
     poll_sec: float = 5.0
     zero_hash_abort_sec: int = 45
     good_samples: int = 3
-    max_jth_regression: float = 0.08
+    max_jth_regression: float = 0.08  # only enforced in efficiency mode
     max_hashrate_drop: float = 0.12
+    # free-power: require this relative HR gain to accept a step
+    min_hashrate_gain: float = 0.02
     freq_step_mhz: int = 25
     voltage_steps_mv: List[int] = field(default_factory=list)
     mode: str = "climb"
@@ -66,6 +74,16 @@ class QCConfig:
             "default": 17.0,
         }
     )
+    # free power: still log J/TH but do not optimize it
+    free_power: bool = True
+
+
+@dataclass
+class PoolConfig:
+    probe_enabled: bool = True
+    tcp_timeout_sec: float = 2.5
+    # if primary TCP is up but miner is on fallback, surface warn (don't auto-PATCH stratum)
+    warn_fallback_when_primary_up: bool = True
 
 
 @dataclass
@@ -88,6 +106,7 @@ class HMEConfig:
     bounds: BoundsConfig = field(default_factory=BoundsConfig)
     tuner: TunerConfig = field(default_factory=TunerConfig)
     qc: QCConfig = field(default_factory=QCConfig)
+    pool: PoolConfig = field(default_factory=PoolConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     server: ServerConfig = field(default_factory=ServerConfig)
     source_path: Optional[str] = None
@@ -156,6 +175,13 @@ def _apply_env(raw: Dict[str, Any]) -> Dict[str, Any]:
         server["port"] = int(os.environ["HME_PORT"])
     if os.environ.get("HME_LOG_DIR"):
         logc["dir"] = os.environ["HME_LOG_DIR"]
+    if os.environ.get("HME_OBJECTIVE"):
+        tun["objective"] = os.environ["HME_OBJECTIVE"].strip()
+    b = _env_bool("HME_FREE_POWER")
+    if b is not None:
+        qc["free_power"] = b
+        if b:
+            tun.setdefault("objective", "max_hashrate")
 
     d["device"] = dev
     d["tuner"] = tun
@@ -172,13 +198,17 @@ def _from_raw(raw: Dict[str, Any], source: Optional[str] = None) -> HMEConfig:
     bounds = raw.get("bounds") or {}
     tun = raw.get("tuner") or {}
     qc = raw.get("qc") or {}
+    pool = raw.get("pool") or {}
     logc = raw.get("logging") or {}
     server = raw.get("server") or {}
 
     ref = qc.get("ref_j_per_th") or {}
-    # TOML may give nested tables as dict already
     if not isinstance(ref, dict):
         ref = {}
+
+    free = bool(qc.get("free_power", True))
+    default_obj = "max_hashrate" if free else "efficiency"
+    objective = str(tun.get("objective", default_obj))
 
     return HMEConfig(
         device=DeviceConfig(
@@ -194,11 +224,16 @@ def _from_raw(raw: Dict[str, Any], source: Optional[str] = None) -> HMEConfig:
             min_voltage_mv=int(bounds.get("min_voltage_mv", 1050)),
             max_voltage_mv=int(bounds.get("max_voltage_mv", 1250)),
             max_temp_c=float(bounds.get("max_temp_c", 70.0)),
-            max_power_w=float(bounds.get("max_power_w", 28.0)),
+            max_power_w=float(bounds.get("max_power_w", 40.0)),
             warn_temp_c=float(bounds.get("warn_temp_c", 65.0)),
+            max_vr_temp_c=float(bounds.get("max_vr_temp_c", 86.0)),
+            warn_vr_temp_c=float(bounds.get("warn_vr_temp_c", 80.0)),
+            min_vin_mv=float(bounds.get("min_vin_mv", 4800.0)),
+            max_reject_pct=float(bounds.get("max_reject_pct", 2.0)),
         ),
         tuner=TunerConfig(
             dry_run=bool(tun.get("dry_run", True)),
+            objective=objective,
             min_change_interval_sec=int(tun.get("min_change_interval_sec", 300)),
             dwell_sec=int(tun.get("dwell_sec", 120)),
             poll_sec=float(tun.get("poll_sec", 5.0)),
@@ -206,6 +241,7 @@ def _from_raw(raw: Dict[str, Any], source: Optional[str] = None) -> HMEConfig:
             good_samples=int(tun.get("good_samples", 3)),
             max_jth_regression=float(tun.get("max_jth_regression", 0.08)),
             max_hashrate_drop=float(tun.get("max_hashrate_drop", 0.12)),
+            min_hashrate_gain=float(tun.get("min_hashrate_gain", 0.02)),
             freq_step_mhz=int(tun.get("freq_step_mhz", 25)),
             voltage_steps_mv=[int(x) for x in (tun.get("voltage_steps_mv") or [])],
             mode=str(tun.get("mode", "climb")),
@@ -216,6 +252,12 @@ def _from_raw(raw: Dict[str, Any], source: Optional[str] = None) -> HMEConfig:
             ref_j_per_th={str(k): float(v) for k, v in {
                 "BM1366": 17.0, "BM1368": 16.5, "BM1370": 15.5, "default": 17.0, **ref
             }.items()},
+            free_power=free,
+        ),
+        pool=PoolConfig(
+            probe_enabled=bool(pool.get("probe_enabled", True)),
+            tcp_timeout_sec=float(pool.get("tcp_timeout_sec", 2.5)),
+            warn_fallback_when_primary_up=bool(pool.get("warn_fallback_when_primary_up", True)),
         ),
         logging=LoggingConfig(
             dir=str(logc.get("dir", "logs")),
