@@ -18,14 +18,22 @@ import os
 import logging
 
 # --- CONFIGURATION ---
-BITAXE_IP = "192.168.0.23"
+try:
+    from hme.config import load_config as _hme_load
+    _c = _hme_load()
+    BITAXE_IP = _c.device.ip
+    MIN_FREQ = _c.bounds.min_freq_mhz
+    BASE_FREQ = _c.bounds.base_freq_mhz
+    MAX_FREQ = _c.bounds.max_freq_mhz
+except Exception:
+    BITAXE_IP = "192.168.0.23"
+    MIN_FREQ = 425
+    BASE_FREQ = 525
+    MAX_FREQ = 575
 HCE_API_URL = "http://localhost:5001/api/hardware"
 NQ_API_URL = "http://localhost:5001/system_coherence.json"
 
-# Frequency Bounds (Safe ranges for BM1366 / BM1370)
-MIN_FREQ = 425
-BASE_FREQ = 525
-MAX_FREQ = 575
+# Frequency Bounds — overridable via hme config above
 CHANGE_THRESHOLD = 15 # MHz delta required to trigger update
 
 # Timing

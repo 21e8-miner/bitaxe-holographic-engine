@@ -17,14 +17,27 @@ import requests
 import json
 import logging
 import numpy as np
+try:
+    from hme.units import normalize_axeos_info
+except ImportError:
+    normalize_axeos_info = None
 from flask import Flask, jsonify, render_template_string
 from flask_cors import CORS
 from threading import Thread
 
 # --- CONFIGURATION ---
-BITAXE_IP = "192.168.0.23"
+# Prefer HME config (config.toml / HME_BITAXE_IP); fall back to legacy default.
+try:
+    from hme.config import load_config as _hme_load
+    _hme_cfg = _hme_load()
+    BITAXE_IP = _hme_cfg.device.ip
+    POLL_INTERVAL = 3.0
+    HME_HASHRATE_UNIT = _hme_cfg.qc.hashrate_unit
+except Exception:
+    BITAXE_IP = "192.168.0.23"
+    POLL_INTERVAL = 3.0
+    HME_HASHRATE_UNIT = "auto"
 HCE_API_URL = "http://localhost:5001/api/hardware"
-POLL_INTERVAL = 3.0
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)s | %(message)s')
 logger = logging.getLogger("HOLO_MINER")
@@ -100,18 +113,24 @@ class HolographicMiningEngine:
                 data = resp.json()
                 self.status = data
                 
-                hashrate_th = data.get('hashRate', 0)
                 power_w = data.get('power', 0)
-                
+                if normalize_axeos_info is not None:
+                    m = normalize_axeos_info(data, globals().get('HME_HASHRATE_UNIT', 'auto'))
+                    hashrate_th = m.hashrate_ths
+                    efficiency = m.j_per_th or 0
+                else:
+                    raw = data.get('hashRate', 0) or 0
+                    # legacy: treat large values as GH/s
+                    hashrate_th = (raw / 1000.0) if raw > 20 else raw
+                    efficiency = (power_w / hashrate_th) if hashrate_th > 0 else 0
+
                 if hashrate_th > 0:
-                    efficiency = power_w / hashrate_th
                     self.history['efficiency'].append(efficiency)
                     self.history['hashrate'].append(hashrate_th)
                     self.history['temp'].append(data.get('temp', 0))
                     self.history['power'].append(power_w)
                     
-                    # QC FROM FIRST PRINCIPLES
-                    # Calculate deviation from BM1366 physical limit (approx 17 J/TH at 1.2 TH/s)
+                    # QC FROM FIRST PRINCIPLES (J/TH vs chip reference)
                     self.qc_metrics['actual_efficiency'] = efficiency
                     self.qc_metrics['efficiency_deviation'] = ((efficiency - self.qc_metrics['theoretical_efficiency']) / self.qc_metrics['theoretical_efficiency']) * 100
                     

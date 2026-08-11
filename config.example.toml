@@ -1,0 +1,68 @@
+# Holographic Mining Engine — example config
+# Copy to config.toml or set HME_CONFIG=/path/to/file
+# Env vars override: HME_BITAXE_IP, HME_DRY_RUN=1, etc.
+
+[device]
+# AxeOS host (no scheme). Comma-separated list for multi-device later.
+ip = "192.168.0.23"
+# Optional: force chip family for J/TH reference if auto-detect fails
+# chip = "BM1370"
+timeout_sec = 8.0
+# Prefer not restarting; only restart if AxeOS requires it for V/F apply
+allow_restart = false
+
+[bounds]
+# Safe V/F envelope — adjust per board/cooling
+min_freq_mhz = 425
+max_freq_mhz = 575
+base_freq_mhz = 500
+min_voltage_mv = 1050
+max_voltage_mv = 1250
+# Absolute abort conditions
+max_temp_c = 70.0
+max_power_w = 28.0
+# Soft warn (log only)
+warn_temp_c = 65.0
+
+[tuner]
+# true = log proposals, never PATCH device
+dry_run = true
+# Minimum seconds between applied changes
+min_change_interval_sec = 300
+# Seconds to soak after an applied change before score
+dwell_sec = 120
+# Poll interval while measuring / soaking
+poll_sec = 5.0
+# Abort if hashrate stays near-zero this long (seconds)
+zero_hash_abort_sec = 45
+# Require this many consecutive good samples after dwell
+good_samples = 3
+# Reject candidate if J/TH worsens by more than this fraction vs baseline
+max_jth_regression = 0.08
+# Reject if hashrate drops more than this fraction vs baseline
+max_hashrate_drop = 0.12
+# Frequency step search (MHz)
+freq_step_mhz = 25
+# Optional voltage steps around current (mV); empty = freq-only
+voltage_steps_mv = []
+# Search modes: "grid" | "climb" (hill-climb from base)
+mode = "climb"
+# Max applied steps per run (safety)
+max_steps = 8
+
+[qc]
+# If AxeOS reports GH/s, convert; "auto" sniffs magnitude
+hashrate_unit = "auto"   # auto | ghs | ths
+# Reference J/TH by chip (thermodynamic QC target, not a hard fail)
+ref_j_per_th = { BM1366 = 17.0, BM1368 = 16.5, BM1370 = 15.5, default = 17.0 }
+
+[logging]
+dir = "logs"
+jsonl_name = "hme_telemetry.jsonl"
+events_name = "hme_events.jsonl"
+# Keep in-memory history for doctor/status
+history_len = 500
+
+[server]
+host = "127.0.0.1"
+port = 5033

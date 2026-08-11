@@ -1,84 +1,123 @@
 # Holographic Mining Engine (HME)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
-[![Status: Universal Framework](https://img.shields.io/badge/status-universal_framework-success.svg)]()
-[![Engineering Review: Passed](https://img.shields.io/badge/engineering_review-passed-success.svg)](ENGINEERING_REVIEW.md)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Status: Safe tuner v1.4](https://img.shields.io/badge/status-safe_tuner_v1.4-success.svg)]()
 
-**A universal, physics-informed ASIC optimization engine that applies holographic coherence principles to maximize mining efficiency. HME acts as an experimental control-theory layer for thermodynamic limit mining, combining real-world hardware control with quasi-aperiodic scheduling.**
+**Bitaxe AxeOS controller:** telemetry with correct J/TH units, a **doctor** CLI, and a **safe V/F tuner** (temp/power gates, dwell, rate limits, dry-run, rollback). Experimental “holographic” modules remain optional research extras.
 
----
-
-## 📊 Performance Summary
-
-| Metric | Stock | Optimized | Improvement |
-|--------|-------|-----------|-------------|
-| **Hashrate** | 925 GH/s | 1,136 GH/s | **+22.6%** |
-| **Efficiency** | ~22 J/TH | 18.4 J/TH | **+16.3%** |
-| **Temperature** | ~70°C | 63°C | **-7°C** |
-| **Management** | Manual | Autonomous | **Automated** |
-
-**Economic Impact:** +6.65 PH annual capacity for only $3.78/year additional electricity cost.
+**Repo:** https://github.com/21e8-miner/bitaxe-holographic-engine
 
 ---
 
-## 🎯 Universal Architecture
+## Supported path (start here)
 
-The **HME** (Holographic Mining Engine) is a hardware-agnostic optimization layer that uses **first-principles physics** to align ASIC performance with environmental coherence metrics. It operates as a "software-defined-mining" controller that bridges the gap between raw hardware and thermodynamic efficiency limits.
-
-1. **Holographic Phase-Locking** - Synchronizes ASIC oscillation frequency with real-time coherence signals.
-2. **Spectral Tuning** - Optimizes voltage/frequency curves based on the specific physical characteristics of the silicon.
-3. **Reference Implementation** - The current codebase serves as a high-performance driver for the **Bitaxe ecosystem** (BM1366, BM1368, BM1370).
-4. **Sidecar Mode (USB Co-Processor)** - Turns a USB-connected Bitaxe into a holographically-scheduled worker, applying a "Holographic Veto" to discard 90% of inefficient work at the PC level.
-5. **Thermodynamic Auditing** - Continuous monitoring of J/TH metrics against absolute physical entropy limits.
-
-### Why It Matters
-
-- **22.6% more hashing power** from the same hardware
-- **Cooler operation** despite higher frequency (extended hardware life)
-- **Zero manual intervention** required after setup
-- **Professional-grade monitoring** with WSJ-style dashboard
-
----
-
-## 🚀 Quick Start (Bitaxe Reference)
-
-### Prerequisites
-
-- Bitaxe hardware (Gamma, Supra, or Ultra)
-- Python 3.13+
-- Network access to your device
-
-### Installation
+### Install
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/bitaxe-holographic-engine.git
+git clone https://github.com/21e8-miner/bitaxe-holographic-engine.git
 cd bitaxe-holographic-engine
-
-# Create virtual environment
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
+source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-# Configure your Bitaxe IP address
-# Edit bitaxe_hce_bridge.py and set BITAXE_IP = "your.bitaxe.ip"
+python -m hme init-config  # writes config.toml from example
 ```
 
-### Running the Engine
+Edit `config.toml`:
+
+```toml
+[device]
+ip = "192.168.x.x"          # your Bitaxe
+allow_restart = false       # safe path never restarts by default
+
+[bounds]
+max_temp_c = 70
+max_power_w = 28
+min_freq_mhz = 425
+max_freq_mhz = 575
+
+[tuner]
+dry_run = true              # keep true until you trust the loop
+dwell_sec = 120
+min_change_interval_sec = 300
+```
+
+Or use env overrides: `HME_BITAXE_IP`, `HME_DRY_RUN=1`, `HME_MAX_TEMP=70`.
+
+### Commands
 
 ```bash
-# Start the holographic mining engine (port 5033)
-python3 bitaxe_holographic_engine.py &
+# Probe device, units, gates, firmware
+python -m hme doctor
+python -m hme doctor --json
 
-# Start the HCE bridge (autonomous optimization)
-python3 bitaxe_hce_bridge.py &
+# One-shot metrics (normalized GH/s + J/TH)
+python -m hme status
 
-# Open the dashboard
-open mining_dashboard_v2.html
+# Safe V/F search — dry-run (default): proposes steps, no PATCH
+python -m hme tune
+
+# Live apply (requires explicit confirmation)
+python -m hme tune --apply --yes
+
+# Quick lab soak (shorter windows)
+python -m hme tune --apply --yes --baseline 20 --dwell 30 --steps 2
+
+# Monitor-only HTTP API (no auto overclock)
+python -m hme serve
+# → http://127.0.0.1:5033/api/status  /api/qc  /api/health
 ```
+
+### What “safe” means
+
+| Guard | Behavior |
+|-------|----------|
+| **dry_run default** | No PATCH unless `--apply --yes` |
+| **Temp / power gates** | Hard abort if `max_temp_c` / `max_power_w` exceeded |
+| **No restart** | `allow_restart=false` — never reboots AxeOS on V/F change |
+| **Rate limit** | Min interval between applies (`min_change_interval_sec`) |
+| **Dwell + remeasure** | Soak after change, then score |
+| **Regression reject** | Worse J/TH or hashrate drop → **rollback** to best profile |
+| **Zero-hash abort** | Stops if hashrate ~0 for too long |
+| **Unit sniff** | GH/s vs TH/s auto-detect so J/TH is not 1000× wrong |
+
+Logs: `logs/hme_telemetry.jsonl`, `logs/hme_events.jsonl`  
+Last run: `results/last_tune.json`
+
+### Tests
+
+```bash
+pytest -q
+```
+
+---
+
+## Legacy / experimental modules
+
+These remain in-tree for research; prefer `python -m hme` for ops.
+
+| Script | Role |
+|--------|------|
+| `bitaxe_holographic_engine.py` | Older Flask telemetry (now uses HME config + unit fix) |
+| `bitaxe_hce_bridge.py` | Coherence→frequency bridge (**restarts** device — use with care) |
+| `ph_bitaxe_sidecar.py` / `ph_real_miner.py` | USB/stratum experiments — **stubs**, not production |
+| `mining_dashboard_v2.html` | Static dashboard (point at device IP) |
+| `server_v2_new.py` / `spectral_trader.py` | Unrelated market stack (optional) |
+
+### Historical performance notes
+
+Prior soak notes claimed ~+22% hashrate from V/F changes on BM1370-class boards. Treat as **unverified until you produce `results/last_tune.json` on your hardware**. The safe tuner is designed so claims are reproducible from logs.
+
+---
+
+## Architecture (v1.4)
+
+1. **Config** — `config.toml` + env (`hme/config.py`)
+2. **Client** — AxeOS HTTP (`hme/client.py`), clamped V/F, gates
+3. **Units** — GH/s↔TH/s + J/TH (`hme/units.py`)
+4. **Doctor** — reachability, chip, QC (`python -m hme doctor`)
+5. **Safe tuner** — measure → propose → gate → apply → dwell → accept/rollback
+6. **JSONL audit trail** — every sample and control event
 
 ---
 
@@ -86,17 +125,25 @@ open mining_dashboard_v2.html
 
 ```
 bitaxe-holographic-engine/
-├── bitaxe_holographic_engine.py    # Main telemetry & QC engine
-├── bitaxe_hce_bridge.py             # Autonomous frequency optimizer
-├── ph_bitaxe_sidecar.py             # USB Sidecar Bridge (Co-processor mode)
-├── ph_real_miner.py                 # Core PH logic & Holographic Veto
-├── mining_dashboard_v2.html         # WSJ-style professional dashboard
-├── mining_dashboard.html            # Original 3D manifold dashboard
-├── hardware_profiles.py             # Multi-model hardware definitions
-├── BITAXE_OPTIMIZATION_REPORT.md   # Detailed performance analysis
-├── requirements.txt                 # Python dependencies
-├── README.md                        # This file
-└── LICENSE                          # MIT License
+├── hme/                         # ★ supported package (v1.4)
+│   ├── __main__.py              # CLI: doctor | status | tune | serve
+│   ├── config.py
+│   ├── client.py
+│   ├── units.py
+│   ├── doctor.py
+│   ├── tuner.py
+│   └── logger.py
+├── config.example.toml
+├── tests/
+├── bitaxe_holographic_engine.py # legacy telemetry server
+├── bitaxe_hce_bridge.py         # legacy HCE bridge (restart-based)
+├── ph_bitaxe_sidecar.py         # experimental USB bridge
+├── ph_real_miner.py             # experimental stub (import-safe)
+├── mining_dashboard_v2.html
+├── BITAXE_OPTIMIZATION_REPORT.md
+├── requirements.txt
+├── pyproject.toml
+└── README.md
 ```
 
 ---

@@ -1,46 +1,61 @@
 """
-PH-REAL-MINER: Holographic Stratum & Worker Logic
-=================================================
-Core engine for the 'Holographic Veto' system.
-Filters work packages from Stratum based on spectral resonance.
+PH-REAL-MINER: experimental work-filter stub
+=============================================
+Research placeholder for "Holographic Veto" experiments.
+
+IMPORTANT: This does NOT improve mining profitability as shipped.
+The evaluate_work path is a STUB (random accept). Do not use on a
+production pool connection expecting better share rates.
+
+The supported production path is:
+  python -m hme doctor
+  python -m hme tune --apply --yes
 """
 
-import time
+from __future__ import annotations
+
 import random
-import hashlib
-from nonce_range_predictor import NonceRangePredictor
+from typing import Any, Optional
+
+# Optional predictor — never hard-fail import if missing
+try:
+    from nonce_range_predictor import NonceRangePredictor  # type: ignore
+except ImportError:  # pragma: no cover
+    NonceRangePredictor = None  # type: ignore
+
 
 class HolographicWorker:
-    def __init__(self):
-        self.predictor = NonceRangePredictor()
+    """Experimental filter. Default is random 10% accept — for lab use only."""
+
+    def __init__(self, accept_rate: float = 0.10):
+        self.predictor = NonceRangePredictor() if NonceRangePredictor else None
+        self.accept_rate = float(accept_rate)
         self.total_vetos = 0
         self.total_accepted = 0
 
-    def evaluate_work(self, header_hex, target_hex):
+    def evaluate_work(self, header_hex: str, target_hex: str) -> bool:
         """
-        Applies the 'Holographic Veto'.
-        Returns True if the work has a high probability resonance.
+        Return True to hash this job.
+
+        STUB: random accept unless a real NonceRangePredictor is installed.
         """
-        # In a real implementation, we would use the predictor
-        # to see if the current header/timestamp aligns with 
-        # a high-coherence spectral mode.
-        
-        # Placeholder logic: 90% Veto rate as requested
-        # We simulate the coherence check
-        coherence = random.random()
-        
-        if coherence > 0.90:
+        if self.predictor is not None:
+            try:
+                # expected API if you ship a real predictor later
+                return bool(self.predictor.should_hash(header_hex, target_hex))  # type: ignore[attr-defined]
+            except Exception:
+                pass
+
+        if random.random() < self.accept_rate:
             self.total_accepted += 1
             return True
-        else:
-            self.total_vetos += 1
-            return False
+        self.total_vetos += 1
+        return False
 
-def stratum_client():
-    """Stub for Stratum protocol handling."""
-    print("[Stratum-PH] Initializing Holographic Job Stream...")
-    # This would normally handle the socket connection,
-    # mining.subscribe, mining.authorize, and mining.notify.
-    pass
+
+def stratum_client() -> None:
+    """Stub — real Stratum is not implemented in this package yet."""
+    print("[Stratum-PH] Stub only. Use AxeOS pool settings + `python -m hme` for ops.")
+
 
 holographic_worker = HolographicWorker()

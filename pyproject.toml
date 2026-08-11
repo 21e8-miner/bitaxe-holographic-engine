@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hme"
+version = "1.4.0"
+description = "Bitaxe AxeOS doctor and safe V/F tuner (Holographic Mining Engine)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "21e8-miner" }]
+dependencies = [
+  "flask>=3.0.0",
+  "flask-cors>=4.0.0",
+  "requests>=2.31.0",
+  "numpy>=1.26.0",
+  "pyserial>=3.5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+hme = "hme.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["hme*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

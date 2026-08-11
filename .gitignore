@@ -50,6 +50,16 @@ nohup.out
 .env
 .env.local
 
+# Local HME config (may contain LAN IPs)
+config.toml
+config.local.toml
+hme.toml
+
+# Runtime artifacts
+results/
+logs/
+grain_vdb_store/
+
 # Node modules (if any)
 node_modules/
 package-lock.json
