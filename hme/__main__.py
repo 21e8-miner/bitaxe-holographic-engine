@@ -50,6 +50,20 @@ def cmd_status(args: argparse.Namespace) -> int:
     except BitaxeError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
+    acc = info.get("sharesAccepted")
+    rej = info.get("sharesRejected")
+    try:
+        acc_i = int(acc) if acc is not None else None
+        rej_i = int(rej) if rej is not None else None
+    except (TypeError, ValueError):
+        acc_i = rej_i = None
+    rej_pct = None
+    if acc_i is not None and rej_i is not None and (acc_i + rej_i) > 0:
+        rej_pct = 100.0 * rej_i / (acc_i + rej_i)
+    using_fb = bool(info.get("isUsingFallbackStratum"))
+    stratum = (
+        info.get("fallbackStratumURL") if using_fb else info.get("stratumURL")
+    ) or info.get("stratumURL") or info.get("fallbackStratumURL")
     payload = {
         "ip": cfg.device.ip,
         "chip": chip,
@@ -57,11 +71,23 @@ def cmd_status(args: argparse.Namespace) -> int:
         "hashrate_ths": round(m.hashrate_ths, 6),
         "power_w": round(m.power_w, 3),
         "temp_c": round(m.temp_c, 2),
+        "vr_temp_c": info.get("vrTemp"),
         "frequency_mhz": m.frequency_mhz,
         "voltage_mv": m.voltage_mv,
         "j_per_th": None if m.j_per_th is None else round(m.j_per_th, 3),
         "hashrate_unit": m.hashrate_unit_assumed,
         "raw_hashrate": m.raw_hashrate,
+        "shares_accepted": acc_i,
+        "shares_rejected": rej_i,
+        "reject_pct": None if rej_pct is None else round(rej_pct, 4),
+        "fan_rpm": info.get("fanrpm"),
+        "uptime_sec": info.get("uptimeSeconds"),
+        "stratum": stratum,
+        "stratum_primary": info.get("stratumURL"),
+        "stratum_fallback": info.get("fallbackStratumURL"),
+        "using_fallback_stratum": using_fb,
+        "version": info.get("version"),
+        "gates_ok": client.gate_ok(m)[0],
     }
     if args.json:
         print(json.dumps(payload, indent=2))
@@ -72,6 +98,13 @@ def cmd_status(args: argparse.Namespace) -> int:
             f"{payload['temp_c']}°C  {payload['j_per_th']} J/TH  "
             f"{payload['frequency_mhz']} MHz / {payload['voltage_mv']} mV"
         )
+        if acc_i is not None:
+            print(
+                f"  shares {acc_i} ok / {rej_i} rej ({payload['reject_pct']}%)  "
+                f"fan {payload['fan_rpm']} rpm  "
+                f"stratum={'fallback ' if payload['using_fallback_stratum'] else ''}"
+                f"{payload['stratum']}"
+            )
     return 0
 
 
@@ -149,21 +182,49 @@ def cmd_serve(args: argparse.Namespace) -> int:
         try:
             info = client.system_info()
             m = client.metrics(info)
-            tlog.sample(m)
+            tlog.sample(m, extra={
+                "shares_accepted": info.get("sharesAccepted"),
+                "shares_rejected": info.get("sharesRejected"),
+            })
+            acc = info.get("sharesAccepted") or 0
+            rej = info.get("sharesRejected") or 0
+            total = acc + rej
             return jsonify({
                 "chip": client.detect_chip(info),
+                "version": info.get("version"),
+                "hostname": info.get("hostname"),
                 "metrics": {
                     "hashrate_ghs": m.hashrate_ghs,
                     "hashrate_ths": m.hashrate_ths,
                     "power_w": m.power_w,
                     "temp_c": m.temp_c,
+                    "vr_temp_c": info.get("vrTemp"),
                     "frequency_mhz": m.frequency_mhz,
                     "voltage_mv": m.voltage_mv,
                     "j_per_th": m.j_per_th,
                     "hashrate_unit": m.hashrate_unit_assumed,
+                    "fan_rpm": info.get("fanrpm"),
+                    "shares_accepted": acc,
+                    "shares_rejected": rej,
+                    "reject_pct": (100.0 * rej / total) if total else 0.0,
+                },
+                "stratum": {
+                    "url": info.get("stratumURL"),
+                    "fallback": info.get("fallbackStratumURL"),
+                    "using_fallback": bool(info.get("isUsingFallbackStratum")),
+                    "user": info.get("stratumUser"),
                 },
                 "gates_ok": client.gate_ok(m)[0],
+                "ip": cfg.device.ip,
             })
+        except BitaxeError as e:
+            return jsonify({"error": str(e)}), 502
+
+    @app.get("/api/raw")
+    def raw():
+        """Proxy full AxeOS /api/system/info for dashboards."""
+        try:
+            return jsonify(client.system_info())
         except BitaxeError as e:
             return jsonify({"error": str(e)}), 502
 
