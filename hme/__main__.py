@@ -162,15 +162,31 @@ def cmd_tune(args: argparse.Namespace) -> int:
 
 
 def cmd_serve(args: argparse.Namespace) -> int:
-    """Lightweight telemetry API (safe path — no auto overclock)."""
-    from flask import Flask, jsonify
+    """Telemetry API + live dashboard UI (safe path — no auto overclock)."""
+    from flask import Flask, jsonify, send_from_directory
     from flask_cors import CORS
 
     cfg = load_config(args.config)
     client = BitaxeClient(cfg)
     tlog = TelemetryLog(cfg)
-    app = Flask("hme")
+    static_dir = Path(__file__).resolve().parent / "static"
+    app = Flask("hme", static_folder=str(static_dir), static_url_path="/static")
     CORS(app)
+
+    @app.get("/")
+    def index():
+        index_path = static_dir / "index.html"
+        if not index_path.is_file():
+            return jsonify({
+                "error": "dashboard missing",
+                "hint": "expected hme/static/index.html",
+                "apis": ["/api/status", "/api/qc", "/api/health", "/api/raw"],
+            }), 404
+        return send_from_directory(static_dir, "index.html")
+
+    @app.get("/dashboard")
+    def dashboard_alias():
+        return send_from_directory(static_dir, "index.html")
 
     @app.get("/api/health")
     def health():
@@ -253,7 +269,9 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
     host = args.host or cfg.server.host
     port = args.port or cfg.server.port
-    print(f"HME serve http://{host}:{port}  device={cfg.device.ip}  (monitor only, no auto-tune)")
+    print(f"HME desk  http://{host}:{port}/")
+    print(f"  device  {cfg.device.ip}  (monitor only, no auto-tune)")
+    print(f"  api     http://{host}:{port}/api/status")
     app.run(host=host, port=port, debug=False)
     return 0
 
