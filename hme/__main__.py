@@ -341,6 +341,79 @@ def cmd_init_config(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_proxy(args: argparse.Namespace) -> int:
+    from .stratum_proxy import main as proxy_main
+    return proxy_main([
+        "--listen-host", args.listen_host,
+        "--listen-port", str(args.listen_port),
+        "--upstream-host", args.upstream_host,
+        "--upstream-port", str(args.upstream_port),
+    ])
+
+
+def _detect_lan_ip() -> str:
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except OSError:
+        return "127.0.0.1"
+
+
+def cmd_repair_pool(args: argparse.Namespace) -> int:
+    """PATCH Bitaxe primary stratum to local proxy; keep CKPool fallback."""
+    cfg = load_config(args.config)
+    bitaxe = args.bitaxe or cfg.device.ip
+    primary = args.primary_host or _detect_lan_ip()
+    port = int(args.primary_port)
+    # verify proxy is listening
+    import socket
+    try:
+        with socket.create_connection((primary if primary != "0.0.0.0" else "127.0.0.1", port), timeout=2):
+            pass
+    except OSError as e:
+        print(
+            f"error: nothing listening on {primary}:{port} ({e})\n"
+            f"Start proxy first:  python -m hme proxy --listen-port {port}",
+            file=sys.stderr,
+        )
+        return 2
+
+    payload = {
+        "stratumURL": primary,
+        "stratumPort": port,
+        "fallbackStratumURL": args.fallback_host,
+        "fallbackStratumPort": int(args.fallback_port),
+    }
+    print(f"Bitaxe {bitaxe} → primary {primary}:{port}  fallback {args.fallback_host}:{args.fallback_port}")
+    if not args.yes:
+        print("Refusing without --yes (will PATCH AxeOS stratum settings).")
+        return 2
+
+    client = BitaxeClient(cfg)
+    # override device ip if needed
+    client.device.ip = bitaxe
+    try:
+        code, text = client.patch_json("/api/system", payload)
+    except BitaxeError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    if code not in (200, 201, 204):
+        print(f"error: PATCH HTTP {code}: {text[:300]}", file=sys.stderr)
+        return 1
+    print("✓ stratum settings updated")
+    if args.restart:
+        print("restarting Bitaxe mining service…")
+        client.post("/api/system/restart")
+        print("✓ restart issued (wait ~15–30s for reconnect)")
+    else:
+        print("Tip: add --restart if AxeOS does not re-subscribe immediately")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="hme",
@@ -379,6 +452,26 @@ def build_parser() -> argparse.ArgumentParser:
     ic.add_argument("-o", "--output", help="Destination path")
     ic.add_argument("--force", action="store_true")
     ic.set_defaults(func=cmd_init_config)
+
+    px = sub.add_parser("proxy", help="Local Stratum V1 proxy (repair primary when i7 is down)")
+    px.add_argument("--listen-host", default="0.0.0.0")
+    px.add_argument("--listen-port", type=int, default=3333)
+    px.add_argument("--upstream-host", default="public-pool.io")
+    px.add_argument("--upstream-port", type=int, default=21496)
+    px.set_defaults(func=cmd_proxy)
+
+    rp = sub.add_parser(
+        "repair-pool",
+        help="Point Bitaxe primary at this host's proxy IP (after proxy is running)",
+    )
+    rp.add_argument("--bitaxe", default=None, help="Bitaxe IP (default from config)")
+    rp.add_argument("--primary-host", default=None, help="LAN IP of this machine (auto-detect)")
+    rp.add_argument("--primary-port", type=int, default=3333)
+    rp.add_argument("--fallback-host", default="solo.ckpool.org")
+    rp.add_argument("--fallback-port", type=int, default=3333)
+    rp.add_argument("--restart", action="store_true", help="Restart Bitaxe to re-lock stratum")
+    rp.add_argument("--yes", action="store_true", help="Apply PATCH without prompt")
+    rp.set_defaults(func=cmd_repair_pool)
 
     return p
 
